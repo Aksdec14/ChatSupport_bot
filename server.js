@@ -137,7 +137,7 @@ app.post("/api/chat", async (req, res) => {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    model: "llama-3.1-70b-versatile",
+                    model: "llama3-8b-8192",
                     temperature: 0.7,
                     max_tokens: 600,
                     top_p: 0.9,
