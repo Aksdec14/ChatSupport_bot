@@ -14,7 +14,7 @@ app.use(express.json());
 // More permissive CORS for testing
 app.use(
     cors({
-        origin: "http://localhost:3000/",
+        origin: true,
         methods: ["GET", "POST", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization"],
     })
