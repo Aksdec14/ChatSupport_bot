@@ -11,16 +11,23 @@ const app = express();
 /* -------------------- MIDDLEWARES -------------------- */
 app.use(express.json());
 
+// More permissive CORS for testing
 app.use(
     cors({
-        origin: "*", // later restrict to your frontend domain
+        origin: "*",
+        methods: ["GET", "POST", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
     })
 );
+
+// Handle preflight requests
+app.options("*", cors());
 
 app.use(
     rateLimit({
         windowMs: 60 * 1000,
         max: 15, // 15 requests per minute per IP
+        message: { error: "Too many requests, please try again later." }
     })
 );
 
@@ -76,19 +83,33 @@ Remember: You represent FusionEdge. Be helpful, trustworthy, and professional at
 /* -------------------- CHAT ENDPOINT -------------------- */
 app.post("/api/chat", async (req, res) => {
     try {
+        console.log("Received chat request");
+        console.log("Request body:", req.body);
+
         const { message, history = [] } = req.body;
 
         // Validation
         if (!message) {
+            console.log("Error: Message is required");
             return res.status(400).json({ error: "Message is required" });
         }
 
         if (typeof message !== "string" || message.trim().length === 0) {
+            console.log("Error: Invalid message format");
             return res.status(400).json({ error: "Invalid message format" });
         }
 
         if (message.length > 1000) {
+            console.log("Error: Message too long");
             return res.status(400).json({ error: "Message too long (max 1000 characters)" });
+        }
+
+        // Check for API key
+        if (!process.env.GROQ_API_KEY) {
+            console.error("GROQ_API_KEY is not set!");
+            return res.status(500).json({ 
+                error: "Server configuration error. Please contact support." 
+            });
         }
 
         // Build conversation history with system prompt
@@ -103,6 +124,8 @@ app.post("/api/chat", async (req, res) => {
                 content: message.trim()
             },
         ];
+
+        console.log("Calling Groq API...");
 
         // Call Groq API
         const groqResponse = await fetch(
@@ -123,20 +146,27 @@ app.post("/api/chat", async (req, res) => {
             }
         );
 
+        console.log("Groq API response status:", groqResponse.status);
+
         if (!groqResponse.ok) {
             const errorData = await groqResponse.text();
             console.error("Groq API Error:", errorData);
-            throw new Error("Groq API failed");
+            return res.status(500).json({ 
+                error: "AI service is temporarily unavailable. Please try again." 
+            });
         }
 
         const data = await groqResponse.json();
+        console.log("Groq API response received");
 
         const reply = data.choices?.[0]?.message?.content;
 
         if (!reply) {
+            console.error("No reply from AI");
             throw new Error("Invalid response from AI service");
         }
 
+        console.log("Sending successful response");
         res.json({
             reply: reply,
             timestamp: new Date().toISOString(),
@@ -144,9 +174,10 @@ app.post("/api/chat", async (req, res) => {
 
     } catch (error) {
         console.error("Chat Error:", error.message);
+        console.error("Stack:", error.stack);
 
         res.status(500).json({
-            error: "Our chat service is temporarily unavailable. Please try again in a moment or contact support@fusionedge.com",
+            error: "Our chat service is temporarily unavailable. Please try again in a moment.",
             timestamp: new Date().toISOString(),
         });
     }
@@ -183,6 +214,7 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
     res.status(404).json({
         error: "Endpoint not found",
+        path: req.path,
         timestamp: new Date().toISOString(),
     });
 });
@@ -193,6 +225,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 FusionEdge Chat Server running on port ${PORT}`);
     console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔑 GROQ_API_KEY is ${process.env.GROQ_API_KEY ? 'SET' : 'NOT SET'}`);
     console.log(`✅ Server started at ${new Date().toISOString()}`);
 });
 
