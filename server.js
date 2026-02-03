@@ -53,7 +53,7 @@ app.post("/api/chat", async (req, res) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "openai/gpt-oss-20b",
+          model: "llama-3.1-8b-instant",
           temperature: 0.4,
           max_tokens: 400,
           messages: messages,
